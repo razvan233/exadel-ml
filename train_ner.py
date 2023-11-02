@@ -32,4 +32,4 @@ with nlp.select_pipes(disable=other_pipes):
             nlp.update([example], drop=0.5, losses=losses)
         print(losses)
 
-nlp.to_disk("custom_ner_model")
+nlp.to_disk("test_ner_model")
