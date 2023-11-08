@@ -308,12 +308,12 @@ urls = [
 
 ]
 
-furniture_ner = spacy.load("custom_ner_model")
+furniture_ner = spacy.load("v2_product_ner_model")
 
 products = []
 
 try:
-    with open('products_list_by_url2.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    with open('products_list_by_url3.csv', 'w', newline='', encoding='utf-8') as csv_file:
         writer = csv.writer(csv_file)
         for url in urls:
             res = requests.get(url)
@@ -321,12 +321,12 @@ try:
                 html_content = res.text
                 soup = BeautifulSoup(html_content, 'html.parser')
                 doc = furniture_ner(soup.get_text())
-                product_name = doc.ents[0].text if doc.ents else None
-                # for ent in doc.ents[:1]:
-                # print("Entity:", ent.text)
-                # print("Entity Label:", ent.label_)
-                # print(doc)
-                writer.writerow([url, product_name])
+                # product_name = doc.ents[0].text if doc.ents else None
+                for ent in doc.ents:
+                    print("Entity:", ent.text)
+                    print("Entity Label:", ent.label_)
+                    # print(doc)
+                # writer.writerow([url, product_name])
 
 except Exception as err:
     print(err)

@@ -1,5 +1,15 @@
 {
-    "cSpell.words": ["aiohttp", "cafile", "certifi", "spacy", "useragent"],
+    "cSpell.words": [
+        "aiohttp",
+        "cafile",
+        "certifi",
+        "ecom",
+        "ents",
+        "factorybuys",
+        "lxml",
+        "spacy",
+        "useragent"
+    ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     },
