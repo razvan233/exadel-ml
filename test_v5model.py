@@ -2,7 +2,9 @@ import spacy
 from bs4 import BeautifulSoup
 import requests
 import csv
-
+import re
+import regex
+import string
 urls = [
     "https://www.factorybuys.com.au/products/euro-top-mattress-king",
     "https://dunlin.com.au/products/beadlight-cirrus",
@@ -310,23 +312,28 @@ urls = [
 ]
 
 
+currency_pattern = re.compile(
+    r'\b(?:\$|€|£|JPY|USD|EUR|GBP|INR|AUD|CAD|SGD|CNY|JPY)\b', re.IGNORECASE)
+currency_pattern2 = regex.compile(
+    r'(?:\p{Sc}|\b(?:USD|EUR|GBP|INR|AUD|CAD|SGD|CNY|JPY)\b)\s*\d+(?:,\d{3})*(?:\.\d+)?', re.IGNORECASE)
+allowed_chars = set(string.ascii_letters + " .,;:-_/")
+
 nlp = spacy.load('v5_product_ner_model')
 
-# doc = nlp('''
-#           Give your bed a touch of modernistic appeal with our Neo Bed Frame. Wrapped in premium PVC leather, the bed frame is at once smooth to the touch and luxurious all round. The bedhead provides ample space for a relaxing back rest when you need to sit up on the bed to read, surf the net or catch a movie on your device. You will surely appreciate the high-density foam that fills the bedhead and every other inch of the bed frame for a well-padded look and feel. Within the frame, a highly flexible wooden arched slat base allows the bed to flex properly so that a person who lies on the bed can move around without unduly disturbing the other. Not least, the sturdy wooden frame is also held together by heavy-duty metal connectors so that you never have to worry about the stability or durability of the bed frame. If elegant sleep is what you after, look no further than the Neo Bed Frame to make your dreams come true.
-#           ''')
 
-# # print(doc)
-# for ent in doc.ents:
-#     print(ent.text, ent.label_)
+def has_non_content_attribute(tag):
+    for attribute in tag.attrs.values():
+        if any(keyword in str(attribute).lower() for keyword in non_content_keywords):
+            return True
+    return False
 
-products = []
+
 products_with_url = []
 
 try:
-    with open('products_list_by_url3.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    with open('products_list_by_url_from_model_v5.csv', 'w', newline='', encoding='utf-8') as csv_file:
         writer = csv.writer(csv_file)
-        for url in urls[10:15]:
+        for url in urls:
             res = requests.get(url)
             if res.status_code == 200:
                 html_content = res.text
@@ -334,37 +341,56 @@ try:
                 for script in soup(['script', 'style', 'nav', 'header', 'footer', 'form', 'img']):
                     script.extract()
 
-                # Get text and normalize whitespace
+                non_content_attributes = [
+                    ('class', 'header'),
+                    ('class', 'footer'),
+                    ('class', 'nav'),
+                    ('class', 'sidebar'),
+                    ('data-section-id', 'sidebar'),
+                    ('data-section-id', 'header'),
+                    ('data-section-id', 'footer'),
+                    ('data-section-id', 'nav'),
+                    ('id', 'sidebar'),
+                    ('id', 'header'),
+                    ('id', 'footer'),
+                    ('id', 'nav'),
+                ]
+
+                for attr, value in non_content_attributes:
+                    for element in soup.find_all(attrs={attr: value}):
+                        element.extract()
+                non_content_keywords = [
+                    'header', 'footer', 'nav', 'sidebar', 'advertisement', ]
+
+                for tag in soup.find_all(has_non_content_attribute):
+                    tag.extract()
                 text = soup.get_text()
                 text = ' '.join(text.split())
 
-                # Decode HTML entities
-                text = BeautifulSoup(text, 'html.parser').text
-
-                # Now 'text' is cleaned and can be fed to the NER model
                 doc = nlp(text)
-                # product_name = doc.ents.text if doc.ents else None
                 for ent in doc.ents:
-                    # print("Entity:", ent.text)
-                    # print("Entity Label:", ent.label_)
-                    products.append(ent.text)
-                    products_with_url.append({'name': ent.text, 'url': url})
-                    # print(doc)
-                # writer.writerow([url, product_name])
+                    product = ent.text
+                    if currency_pattern.search(product) or currency_pattern2.search(product):
+                        continue
+                    if any(char not in allowed_chars for char in product):
+                        continue
+                    print(product)
+                    if '.' in product:
+                        product = product.split(".")[0]
+
+                    products_with_url.append(
+                        {'product': product.lower(), 'url': url})
         seen = set()
         new_products = []
 
         for product in products_with_url:
-            # Convert dictionary items to a tuple and check if it's already seen
             identifier = tuple(product.items())
             if identifier not in seen:
                 seen.add(identifier)
                 new_products.append(product)
 
-        products = set(products)
-        print(products)
-        print("---------")
-        print(new_products)
+        for product_info in new_products:
+            writer.writerow([product_info['url'], product_info['product']])
 
 except Exception as err:
     print(err)
